@@ -5,6 +5,8 @@ defmodule GoogleSecretProvider do
 
   require Logger
 
+  alias GoogleSecretProvider.Exception
+
   def init(config), do: config
 
   def load(config, %{project_id: project_id, secret_id: secret_id}) do
@@ -52,7 +54,7 @@ defmodule GoogleSecretProvider do
         decode_secrets!(data)
 
       {:error, error} ->
-        raise "Error fetching secrets from Google API #{inspect(error)}"
+        raise Exception, message: "Error fetching secrets from Google API: #{inspect(error)}"
     end
   end
 
@@ -62,7 +64,7 @@ defmodule GoogleSecretProvider do
         secrets
 
       {:error, _error} ->
-        raise "Error decoding secrets. Make sure your secret is a valid JSON."
+        raise Exception, message: "Error decoding secrets. Make sure your secret is a valid JSON."
     end
   end
 
@@ -72,7 +74,7 @@ defmodule GoogleSecretProvider do
         token
 
       {:error, error} ->
-        raise "Error fetching token from Goth: #{inspect(error)}"
+        raise Exception, message: "Error fetching token from Goth: #{inspect(error)}"
     end
   end
 
@@ -82,7 +84,7 @@ defmodule GoogleSecretProvider do
         value
 
       :error ->
-        raise "Could not find key #{json_key} in JSON secret payload. All keys specified in configs must be present in secrets"
+        raise Exception, message: "Could not find key '#{json_key}' in JSON secret payload"
     end
   end
 

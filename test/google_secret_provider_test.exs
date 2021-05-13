@@ -4,18 +4,21 @@ defmodule GoogleSecretProviderTest do
 
   import Mox
 
+  alias GoogleSecretProvider.{Exception, MockApiClient, MockAuthToken}
+
   setup :verify_on_exit!
 
   @valid_secrets "test/support/secrets-valid.json" |> File.read!() |> Base.encode64()
   @invalid_secrets "test/support/secrets-invalid.json" |> File.read!() |> Base.encode64()
+  @project_configs %{project_id: "123456789", secret_id: "app-secret-id"}
 
   describe "load/2" do
 
     test "it replaces matching tags with values from secrets" do
-      GoogleSecretProvider.MockApiClient
+      MockApiClient
       |> expect(:fetch_secrets, fn _token, _project_id, _secret_id, _version -> {:ok, @valid_secrets} end)
 
-      GoogleSecretProvider.MockAuthToken
+      MockAuthToken
       |> expect(:for_scope, fn _scope -> {:ok, "secret-token"} end)
 
       config = [
@@ -32,7 +35,7 @@ defmodule GoogleSecretProviderTest do
         ]
       ]
 
-      replaced_configs = GoogleSecretProvider.load(config, %{project_id: "123456789", secret_id: "app-secret-id"})
+      replaced_configs = GoogleSecretProvider.load(config, @project_configs)
 
       expected = [
         foo: [
@@ -49,6 +52,57 @@ defmodule GoogleSecretProviderTest do
       ]
 
       assert replaced_configs == expected
+    end
+
+    test "raises an error when secrets is not a valid JSON" do
+      MockApiClient
+      |> expect(:fetch_secrets, fn _token, _project_id, _secret_id, _version -> {:ok, @invalid_secrets} end)
+
+      MockAuthToken
+      |> expect(:for_scope, fn _scope -> {:ok, "secret-token"} end)
+
+      assert_raise(Exception, "Error decoding secrets. Make sure your secret is a valid JSON.", fn  ->
+        GoogleSecretProvider.load([], @project_configs)
+      end)
+    end
+
+    test "raises an error when it is not possible to get an auth token" do
+      MockAuthToken
+      |> expect(:for_scope, fn _scope -> {:error, "some error"} end)
+
+      assert_raise(Exception, "Error fetching token from Goth: \"some error\"", fn  ->
+        GoogleSecretProvider.load([], @project_configs)
+      end)
+    end
+
+    test "raises an error when it is not possible to get secrets from API" do
+      MockApiClient
+      |> expect(:fetch_secrets, fn _token, _project_id, _secret_id, _version -> {:error, "some error"} end)
+
+      MockAuthToken
+      |> expect(:for_scope, fn _scope -> {:ok, "secret-token"} end)
+
+      assert_raise(Exception, "Error fetching secrets from Google API: \"some error\"", fn  ->
+        GoogleSecretProvider.load([], @project_configs)
+      end)
+    end
+
+    test "raises an error when specified JSON key does not exist in secrets" do
+      MockApiClient
+      |> expect(:fetch_secrets, fn _token, _project_id, _secret_id, _version -> {:ok, @valid_secrets} end)
+
+      MockAuthToken
+      |> expect(:for_scope, fn _scope -> {:ok, "secret-token"} end)
+
+      config = [
+        foo: [
+          bar: {:google_secret, "missing-key"}
+        ]
+      ]
+
+      assert_raise(Exception, "Could not find key 'missing-key' in JSON secret payload", fn  ->
+        GoogleSecretProvider.load(config, @project_configs)
+      end)
     end
 
   end
