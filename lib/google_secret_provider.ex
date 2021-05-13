@@ -47,11 +47,10 @@ defmodule GoogleSecretProvider do
     response =
       @auth_scope
       |> get_auth_token!()
-      |> Connection.new()
-      |> Api.Projects.secretmanager_projects_secrets_versions_access(project_id, secret_id, version)
+      |> api_client().fetch_secrets(project_id, secret_id, version)
 
     case response do
-      {:ok, %Model.AccessSecretVersionResponse{payload: %Model.SecretPayload{data: data}}} ->
+      {:ok, data} ->
         decode_secrets!(data)
 
       {:error, error} ->
@@ -70,11 +69,11 @@ defmodule GoogleSecretProvider do
   end
 
   defp get_auth_token!(scope) do
-    case Goth.Token.for_scope(scope) do
-      {:ok, %Goth.Token{token: token}} ->
+    case auth_token().for_scope(scope) do
+      {:ok, token} ->
         token
 
-      error ->
+      {:error, error} ->
         raise "Error fetching token from Goth: #{inspect(error)}"
     end
   end
@@ -88,4 +87,7 @@ defmodule GoogleSecretProvider do
         raise "Could not find key #{json_key} in JSON secret payload. All keys specified in configs must be present in secrets"
     end
   end
+
+  defp api_client(), do: Application.get_env(:google_secret_provider, :api_client, GoogleSecretProvider.ApiClient)
+  defp auth_token(), do: Application.get_env(:google_secret_provider, :auth_token, GoogleSecretProvider.AuthToken)
 end

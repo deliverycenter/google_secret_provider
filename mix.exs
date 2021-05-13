@@ -23,7 +23,8 @@ defmodule GoogleSecretProvider.MixProject do
     [
       {:jason, "~> 1.0"},
       {:goth, "~> 1.1.0"},
-      {:google_api_secret_manager, "~> 0.16"}
+      {:google_api_secret_manager, "~> 0.16"},
+      {:mox, "~> 1.0"}
     ]
   end
 end
