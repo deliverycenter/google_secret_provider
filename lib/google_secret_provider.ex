@@ -5,8 +5,6 @@ defmodule GoogleSecretProvider do
 
   require Logger
 
-  alias GoogleApi.SecretManager.V1.{Api, Connection, Model}
-
   def init(config), do: config
 
   def load(config, %{project_id: project_id, secret_id: secret_id}) do
